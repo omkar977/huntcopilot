@@ -1,0 +1,13 @@
+id: HC-010
+name: Executable dropped in AppData Roaming
+description: A .exe or .dll file was created under AppData\Roaming.
+severity: 3
+mitre:
+  tactics: [Initial Access]
+  techniques: [T1204.002]
+type: single
+group_by: [host]
+where:
+  - {field: event_type, op: eq, value: file_create}
+  - {field: file.path, op: regex, value: 'appdata\\+roaming\\.*\.(?:exe|dll)$'}
+exclusions: []

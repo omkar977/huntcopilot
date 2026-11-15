@@ -1,0 +1,56 @@
+{
+  "must_fire": [
+    {
+      "rule_id": "HC-001",
+      "host": "WS-03"
+    },
+    {
+      "rule_id": "HC-002",
+      "host": "WS-03"
+    },
+    {
+      "rule_id": "HC-003",
+      "host": "WS-03"
+    },
+    {
+      "rule_id": "HC-004",
+      "host": "WS-03"
+    },
+    {
+      "rule_id": "HC-005",
+      "host": "WS-03"
+    },
+    {
+      "rule_id": "HC-006",
+      "host": "FILE-01"
+    },
+    {
+      "rule_id": "HC-006",
+      "host": "DB-01"
+    },
+    {
+      "rule_id": "HC-007",
+      "host": "DB-01"
+    },
+    {
+      "rule_id": "HC-010",
+      "host": "WS-03"
+    }
+  ],
+  "must_not_fire": [
+    {
+      "rule_id": "HC-008"
+    },
+    {
+      "rule_id": "HC-009"
+    },
+    {
+      "rule_id": "HC-002",
+      "host": "WS-08"
+    },
+    {
+      "rule_id": "HC-004",
+      "host": "WS-08"
+    }
+  ]
+}

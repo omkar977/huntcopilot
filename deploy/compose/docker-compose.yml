@@ -1,0 +1,203 @@
+# HuntCopilot stack (spec 11.2). Start:  cp .env.example .env  (set HC_API_KEY), then
+#   docker compose up -d --build
+# Load the demo data:
+#   docker compose run --rm generator python -m generator run --profile benign_train --seed 1001 --out redis
+#   docker compose run --rm generator python -m generator run --profile eval --scenarios apt_chain --seed 2002 --out redis
+# Memory limits follow the budget in spec 11.3. Ports are bound to 127.0.0.1 except the dashboard.
+x-hc-service: &hc-service
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    HC_API_KEY: ${HC_API_KEY:?copy .env.example to .env and set HC_API_KEY}
+  networks: [hc-net]
+  restart: unless-stopped
+
+services:
+  redis:
+    image: redis:7-alpine
+    mem_limit: 200m
+    ports: ["127.0.0.1:6379:6379"]
+    networks: [hc-net]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+  opensearch:
+    image: ${OPENSEARCH_IMAGE:-opensearchproject/opensearch:2.17.1}
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: "true"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+      bootstrap.memory_lock: "false"
+    ulimits:
+      nofile: { soft: 65536, hard: 65536 }
+    mem_limit: 1200m
+    ports: ["127.0.0.1:9200:9200"]
+    volumes: ["os-data:/usr/share/opensearch/data"]
+    networks: [hc-net]
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -s http://localhost:9200/_cluster/health | grep -qE 'green|yellow'",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+  generator:
+    <<: *hc-service
+    build: { context: ../.., dockerfile: deploy/docker/Dockerfile.generator }
+    image: huntcopilot/generator:dev
+    ports: ["127.0.0.1:8300:8300"]
+    depends_on:
+      redis: { condition: service_healthy }
+    mem_limit: 300m
+    volumes: ["hc-data:/data"]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "import urllib.request as u; u.urlopen(''http://localhost:8300/health'', timeout=2)"',
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+  ingestor:
+    <<: *hc-service
+    build: { context: ../.., dockerfile: deploy/docker/Dockerfile.ingestor }
+    image: huntcopilot/ingestor:dev
+    ports: ["127.0.0.1:8301:8301"]
+    depends_on:
+      redis: { condition: service_healthy }
+      opensearch: { condition: service_healthy }
+    mem_limit: 200m
+    volumes: ["hc-data:/data"]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "import urllib.request as u; u.urlopen(''http://localhost:8301/health'', timeout=2)"',
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+  detector:
+    <<: *hc-service
+    build: { context: ../.., dockerfile: deploy/docker/Dockerfile.detector }
+    image: huntcopilot/detector:dev
+    ports: ["127.0.0.1:8200:8200"]
+    depends_on:
+      redis: { condition: service_healthy }
+      opensearch: { condition: service_healthy }
+    mem_limit: 400m
+    volumes: ["hc-data:/data"]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "import urllib.request as u; u.urlopen(''http://localhost:8200/health'', timeout=2)"',
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+  ml:
+    <<: *hc-service
+    build: { context: ../.., dockerfile: deploy/docker/Dockerfile.ml }
+    image: huntcopilot/ml:dev
+    ports: ["127.0.0.1:8100:8100"]
+    depends_on:
+      opensearch: { condition: service_healthy }
+    mem_limit: 1000m
+    volumes: ["hc-data:/data"]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "import urllib.request as u; u.urlopen(''http://localhost:8100/health'', timeout=2)"',
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+  api:
+    <<: *hc-service
+    build: { context: ../.., dockerfile: deploy/docker/Dockerfile.api }
+    image: huntcopilot/api:dev
+    ports: ["127.0.0.1:8000:8000"]
+    depends_on:
+      redis: { condition: service_healthy }
+      opensearch: { condition: service_healthy }
+    mem_limit: 500m
+    volumes: ["hc-data:/data"]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "import urllib.request as u; u.urlopen(''http://localhost:8000/health'', timeout=2)"',
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+  dashboard:
+    <<: *hc-service
+    build: { context: ../.., dockerfile: deploy/docker/Dockerfile.dashboard }
+    image: huntcopilot/dashboard:dev
+    ports: ["0.0.0.0:8501:8501"]
+    environment:
+      HC_API_KEY: ${HC_API_KEY:?copy .env.example to .env and set HC_API_KEY}
+      HC_API_URL: http://api:8000
+      HC_ML_URL: http://ml:8100
+      HC_DETECTOR_URL: http://detector:8200
+      HC_GENERATOR_URL: http://generator:8300
+    depends_on:
+      api: { condition: service_healthy }
+      generator: { condition: service_healthy }
+    mem_limit: 500m
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "import urllib.request as u; u.urlopen(''http://localhost:8501/_stcore/health'', timeout=2)"',
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+  mlflow:
+    image: huntcopilot/mlflow:dev
+    build: { context: ../.., dockerfile: deploy/docker/Dockerfile.mlflow }
+    env_file:
+      - path: .env
+        required: false
+    ports: ["127.0.0.1:5000:5000"]
+    mem_limit: 300m
+    volumes: ["hc-data:/data"]
+    networks: [hc-net]
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "import urllib.request as u; u.urlopen(''http://localhost:5000/health'', timeout=2)"',
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+networks:
+  hc-net: {}
+
+volumes:
+  os-data: {}
+  hc-data: {}

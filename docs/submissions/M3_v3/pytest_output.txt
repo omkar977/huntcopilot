@@ -1,0 +1,5 @@
+NOTE: pytest could not be installed on the build machine (no network), so these numbers come from a stand-in test runner, not from pytest.
+Library tests (libs/hc_ml/tests): 39 passed
+Store tests (services/ml/tests/test_svc_store.py): 7 passed
+test_svc_api.py and test_svc_schemas.py were not run (need fastapi and pydantic).
+Total: 46 passed

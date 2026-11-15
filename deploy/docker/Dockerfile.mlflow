@@ -1,0 +1,11 @@
+# mlflow: tracking UI on port 5000 (optional service). Build from the repository root:
+#   docker build -f deploy/docker/Dockerfile.mlflow -t huntcopilot/mlflow:dev .
+FROM python:3.11-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 HC_SERVICE=mlflow
+RUN useradd --create-home --uid 10001 hc && mkdir -p /data && chown hc:hc /data
+WORKDIR /app
+RUN pip install --no-cache-dir "mlflow>=2.9,<3"
+USER hc
+EXPOSE 5000
+HEALTHCHECK --interval=15s --timeout=3s --retries=5 CMD python -c "import urllib.request as u; u.urlopen('http://localhost:5000/health', timeout=2)"
+CMD ["sh", "-c", "exec mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri \"${HC_MLFLOW_URI:-file:///data/mlruns}\" --default-artifact-root \"${HC_MLFLOW_URI:-file:///data/mlruns}\""]

@@ -1,0 +1,18 @@
+id: HC-005
+name: Internal SMB, RPC or WinRM fan-out
+description: One host opened SMB, RPC or WinRM connections to 4 or more distinct internal addresses within 10 minutes.
+severity: 4
+mitre:
+  tactics: [Lateral Movement]
+  techniques: [T1021]
+type: threshold
+group_by: [host]
+where:
+  - {field: event_type, op: eq, value: network_conn}
+  - {field: net.direction, op: eq, value: internal}
+  - {field: net.dst_port, op: in, value: [445, 135, 5985]}
+window_seconds: 600
+distinct_field: net.dst_ip
+distinct_gte: 4
+exclusions:
+  - - {field: user, op: eq, value: svc_backup}

@@ -1,0 +1,23 @@
+id: HC-003
+name: Encoded PowerShell followed by outbound connection
+description: Encoded PowerShell and then an outbound network connection on the same host within 120 seconds.
+severity: 4
+mitre:
+  tactics: [Command and Control]
+  techniques: [T1071.001]
+type: sequence
+group_by: [host]
+steps:
+  - id: encoded_powershell
+    where:
+      - {field: event_type, op: eq, value: process_create}
+      - {field: process.name, op: eq, value: powershell.exe}
+      - {field: process.cmdline, op: regex, value: '\s-(?:e|enc|encodedcommand)\s+[A-Za-z0-9+/=]{8,}'}
+  - id: outbound_connection
+    within_seconds: 120
+    where:
+      - {field: event_type, op: eq, value: network_conn}
+      - {field: net.direction, op: eq, value: outbound}
+exclusions:
+  - - {field: host, op: eq, value: WS-08}
+    - {field: user, op: eq, value: adm_it}

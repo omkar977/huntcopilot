@@ -1,0 +1,17 @@
+id: HC-009
+name: Periodic outbound beaconing
+description: At least 15 outbound connections from a host to one address in 2 hours with regular gaps.
+severity: 4
+mitre:
+  tactics: [Command and Control]
+  techniques: [T1071.001]
+type: periodicity
+group_by: [host, net.dst_ip]
+where:
+  - {field: event_type, op: eq, value: network_conn}
+  - {field: net.direction, op: eq, value: outbound}
+min_events: 15
+max_cv: 0.25
+window_seconds: 7200
+exclusions:
+  - - {field: net.dst_ip, op: eq, value: 198.51.100.77}

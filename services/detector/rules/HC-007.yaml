@@ -1,0 +1,13 @@
+id: HC-007
+name: LSASS memory dump
+description: procdump aimed at lsass, or comsvcs.dll MiniDump.
+severity: 5
+mitre:
+  tactics: [Credential Access]
+  techniques: [T1003.001]
+type: single
+group_by: [host]
+where:
+  - {field: event_type, op: eq, value: process_create}
+  - {field: process.cmdline, op: regex, value: 'procdump.*lsass|comsvcs\.dll.*minidump'}
+exclusions: []

@@ -1,0 +1,16 @@
+# generator: build from the repository root, for example:
+#   docker build -f deploy/docker/Dockerfile.generator -t huntcopilot/generator:dev .
+# The start command on the last line is the only service-specific line besides the port.
+FROM python:3.11-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 HC_SERVICE=generator
+RUN useradd --create-home --uid 10001 hc && mkdir -p /data && chown hc:hc /data
+WORKDIR /app
+COPY common/ /app/common/
+COPY libs/ /app/libs/
+COPY services/generator/ /app/services/generator/
+RUN pip install --no-cache-dir -r /app/services/generator/requirements.txt
+ENV PYTHONPATH=/app/common:/app/libs:/app/services/generator
+USER hc
+EXPOSE 8300
+HEALTHCHECK --interval=15s --timeout=3s --retries=5 CMD python -c "import urllib.request as u; u.urlopen('http://localhost:8300/health', timeout=2)"
+CMD ["sh", "-c", "exec python -m generator serve"]

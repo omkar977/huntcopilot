@@ -1,0 +1,46 @@
+# Non-secret settings (spec Section 4). Secrets live in 11-secret.example.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hc-config
+  namespace: huntcopilot
+  labels:
+    app.kubernetes.io/name: hc-config
+    app.kubernetes.io/part-of: huntcopilot
+    app.kubernetes.io/component: config
+data:
+  HC_ENV: "prod"
+  HC_LOG_LEVEL: "INFO"
+  HC_REDIS_URL: "redis://redis:6379/0"
+  HC_OPENSEARCH_URL: "http://opensearch:9200"
+  HC_EVENTS_INDEX_PREFIX: "hc-events"
+  HC_ALERTS_INDEX: "hc-alerts"
+  HC_FINDINGS_INDEX: "hc-findings"
+  HC_API_URL: "http://api:8000"
+  HC_ML_URL: "http://ml:8100"
+  HC_GENERATOR_URL: "http://generator:8300"
+  HC_DB_URL: "sqlite:////data/hc.db"
+  HC_AUDIT_PATH: "/data/audit.jsonl"
+  HC_MODEL_DIR: "/data/models"
+  HC_MLFLOW_URI: "file:///data/mlruns"
+  LLM_PROVIDER: "none"
+  LLM_BASE_URL: ""
+  LLM_MODEL: ""
+  LLM_TIMEOUT_S: "20"
+---
+# Shared /data volume (SQLite, audit log, models, MLflow store, labels). ReadWriteOnce means all
+# pods that mount it must run on the same node (a single-node cluster such as k3s is fine).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hc-data
+  namespace: huntcopilot
+  labels:
+    app.kubernetes.io/name: hc-data
+    app.kubernetes.io/part-of: huntcopilot
+    app.kubernetes.io/component: storage
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi

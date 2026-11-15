@@ -1,0 +1,13 @@
+id: HC-008
+name: SAM, SYSTEM or NTDS credential store extraction
+description: reg save of HKLM SAM or SYSTEM, or ntdsutil.
+severity: 5
+mitre:
+  tactics: [Credential Access]
+  techniques: [T1003.002, T1003.003]
+type: single
+group_by: [host]
+where:
+  - {field: event_type, op: eq, value: process_create}
+  - {field: process.cmdline, op: regex, value: 'reg(?:\.exe)?\s+save\s+hklm\\+(?:sam|system)\b|ntdsutil'}
+exclusions: []

@@ -1,0 +1,16 @@
+id: HC-002
+name: Encoded PowerShell command
+description: powershell.exe started with -enc, -encodedcommand or -e followed by base64 text.
+severity: 3
+mitre:
+  tactics: [Execution]
+  techniques: [T1059.001]
+type: single
+group_by: [host]
+where:
+  - {field: event_type, op: eq, value: process_create}
+  - {field: process.name, op: eq, value: powershell.exe}
+  - {field: process.cmdline, op: regex, value: '\s-(?:e|enc|encodedcommand)\s+[A-Za-z0-9+/=]{8,}'}
+exclusions:
+  - - {field: host, op: eq, value: WS-08}
+    - {field: user, op: eq, value: adm_it}

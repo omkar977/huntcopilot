@@ -1,0 +1,74 @@
+[
+  {
+    "host": "WS-01",
+    "ip": "10.10.1.11",
+    "role": "workstation",
+    "criticality": 2
+  },
+  {
+    "host": "WS-02",
+    "ip": "10.10.1.12",
+    "role": "workstation",
+    "criticality": 2
+  },
+  {
+    "host": "WS-03",
+    "ip": "10.10.1.13",
+    "role": "workstation",
+    "criticality": 2
+  },
+  {
+    "host": "WS-04",
+    "ip": "10.10.1.14",
+    "role": "workstation",
+    "criticality": 2
+  },
+  {
+    "host": "WS-05",
+    "ip": "10.10.1.15",
+    "role": "workstation",
+    "criticality": 2
+  },
+  {
+    "host": "WS-06",
+    "ip": "10.10.1.16",
+    "role": "workstation",
+    "criticality": 2
+  },
+  {
+    "host": "WS-07",
+    "ip": "10.10.1.17",
+    "role": "workstation",
+    "criticality": 2
+  },
+  {
+    "host": "WS-08",
+    "ip": "10.10.1.18",
+    "role": "workstation",
+    "criticality": 2
+  },
+  {
+    "host": "FILE-01",
+    "ip": "10.10.2.21",
+    "role": "file server",
+    "criticality": 3
+  },
+  {
+    "host": "DB-01",
+    "ip": "10.10.2.31",
+    "role": "database",
+    "criticality": 5
+  },
+  {
+    "host": "DC-01",
+    "ip": "10.10.2.5",
+    "role": "domain controller",
+    "criticality": 5
+  },
+  {
+    "host": "WEB-01",
+    "ip": "10.10.3.41",
+    "role": "web server",
+    "criticality": 4
+  }
+]

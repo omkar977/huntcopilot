@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: huntcopilot
+  labels:
+    app.kubernetes.io/name: huntcopilot
+    app.kubernetes.io/part-of: huntcopilot
+    app.kubernetes.io/component: namespace

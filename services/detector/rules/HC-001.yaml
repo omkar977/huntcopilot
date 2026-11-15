@@ -1,0 +1,14 @@
+id: HC-001
+name: Office application spawned PowerShell
+description: Word, Excel or Outlook started powershell.exe.
+severity: 4
+mitre:
+  tactics: [Execution]
+  techniques: [T1566.001, T1059.001]
+type: single
+group_by: [host]
+where:
+  - {field: event_type, op: eq, value: process_create}
+  - {field: process.name, op: eq, value: powershell.exe}
+  - {field: process.parent_name, op: in, value: [winword.exe, excel.exe, outlook.exe]}
+exclusions: []

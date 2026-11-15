@@ -1,0 +1,2 @@
+ruff is not installable on the build machine. A stand-in check (unused imports, trailing whitespace, EOF newline) found 0 issues in libs/hc_ml, services/ml and page 6.
+Run: ruff check --config ruff.toml .

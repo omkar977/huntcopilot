@@ -1,0 +1,13 @@
+id: HC-006
+name: PsExec service started on a host
+description: psexesvc.exe, the remote service installed by PsExec, was created.
+severity: 4
+mitre:
+  tactics: [Lateral Movement, Execution]
+  techniques: [T1569.002]
+type: single
+group_by: [host]
+where:
+  - {field: event_type, op: eq, value: process_create}
+  - {field: process.name, op: eq, value: psexesvc.exe}
+exclusions: []
