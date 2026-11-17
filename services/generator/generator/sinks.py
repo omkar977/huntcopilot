@@ -72,11 +72,13 @@ def wait_for_capacity(client: Any, sleep: Callable[[float], None] = time.sleep, 
 
 def push_redis(events: list[dict], client: Any, speed: str = "burst", time_scale: float = 60.0,
                progress: Optional[Callable[[int], None]] = None,
-               sleep: Callable[[float], None] = time.sleep, clock: Callable[[], float] = time.monotonic) -> int:
+               sleep: Callable[[float], None] = time.sleep, clock: Callable[[], float] = time.monotonic,
+               should_stop: Optional[Callable[[], bool]] = None) -> int:
     """XADD every event to hc:telemetry (field data holds the Event JSON). Returns the number pushed.
 
     burst sends as fast as possible. realtime replays the simulated clock divided by time_scale
-    (60 means one simulated minute per real second).
+    (60 means one simulated minute per real second). should_stop is polled between batches (and while
+    waiting in realtime mode) so a run can be cancelled; events already sent stay sent.
     """
     batch_size = BURST_BATCH if speed == "burst" else REALTIME_BATCH
     total = len(events)
@@ -94,11 +96,17 @@ def push_redis(events: list[dict], client: Any, speed: str = "burst", time_scale
     wall0 = clock()
     sent = 0
     for i in range(0, total, batch_size):
+        if should_stop and should_stop():
+            break
         chunk = events[i:i + batch_size]
         if speed == "realtime":
             delay = seconds_since_first(chunk[0]) / max(time_scale, 0.001) - (clock() - wall0)
-            if delay > 0:
-                sleep(delay)
+            while delay > 0 and not (should_stop and should_stop()):
+                step = min(delay, 0.5)
+                sleep(step)
+                delay -= step
+            if should_stop and should_stop():
+                break
         wait_for_capacity(client, sleep)
         pipe = client.pipeline(transaction=False)
         for ev in chunk:

@@ -60,10 +60,12 @@ def make_handler(runner: Runner, api_key: str) -> type[BaseHTTPRequestHandler]:
 
         def do_POST(self) -> None:  # noqa: N802
             path = self.path.split("?")[0]
-            if path != "/v1/run":
+            if path not in ("/v1/run", "/v1/stop"):
                 return self._error(404, "not_found", f"no route {path}")
             if not self._authorised():
                 return self._error(401, "invalid_request", "missing or wrong X-API-Key")
+            if path == "/v1/stop":
+                return self._send(200, {"stopping": runner.stop()})
             try:
                 length = int(self.headers.get("Content-Length", "0"))
                 if length > MAX_BODY:

@@ -74,6 +74,8 @@ def wait_generator(label, timeout=900):
     t0 = time.time()
     while time.time() - t0 < timeout:
         st = call("GET", GEN + "/v1/status")
+        if st.get("state") == "stopped":
+            raise RuntimeError(f"generator run was stopped ({label}); start the test again")
         if st.get("state") == "done":
             if st.get("error"):
                 raise RuntimeError("generator error: " + st["error"])

@@ -20,6 +20,21 @@ POLL_SECONDS = 1.0
 POLL_LIMIT_SECONDS = 600
 
 
+GLOSSARY = """
+- **Run id**: a unique label for this run (first 8 characters shown).
+- **Produced / Total**: events sent so far / events in the whole run. The progress bar is produced divided by total.
+- **Event**: one log line, for example "a program started" or "a PC connected to a server".
+- **State**: idle (nothing yet), running, done, stopped (you pressed Stop).
+- **Profile**: benign_train = normal only (for training the model); eval = normal plus attacks (for detection and testing).
+- **Scenario**: an attack story hidden in the data. apt_chain is the full chain; the others are single stages
+  (phishing, lateral movement, credential dumping, C2).
+- **Seed**: makes the random data repeatable. Same seed means the same data.
+- **Burst / realtime**: as fast as possible / replayed at a realistic pace.
+- **Labels file**: a hidden answer key saying which events are attacks. Only used later to grade the model.
+  The detection rules and the ML model never see it.
+"""
+
+
 def generator_url() -> str:
     return os.getenv("HC_GENERATOR_URL", "http://generator:8300").rstrip("/")
 
@@ -65,6 +80,9 @@ def describe(status: dict[str, Any]) -> str:
     state = status.get("state", "idle")
     if state == "idle":
         return "No run yet."
+    if state == "stopped":
+        return (f"Run {status.get('run_id', '')[:8]} was stopped after {status.get('produced', 0)} of "
+                f"{status.get('total', 0)} events. Events already sent stay in the system.")
     if status.get("error"):
         return f"Run {status.get('run_id', '')[:8]} failed: {status['error']}"
     return f"Run {status.get('run_id', '')[:8]} is {state}: {status.get('produced', 0)} of {status.get('total', 0)} events."
@@ -77,9 +95,12 @@ def show_status(status: dict[str, Any]) -> None:
         return
     st.write(describe(status))
     cols = st.columns(3)
-    cols[0].metric("Produced", status.get("produced", 0))
-    cols[1].metric("Total", status.get("total", 0))
-    cols[2].metric("State", status.get("state", "idle"))
+    cols[0].metric("Produced", status.get("produced", 0), help="Events sent to the pipeline so far.")
+    cols[1].metric("Total", status.get("total", 0), help="Events this run will create in total.")
+    cols[2].metric("State", status.get("state", "idle"),
+                   help="idle: nothing started. running: generating. done: finished. stopped: cancelled by you.")
+    with st.expander("What do these terms mean?"):
+        st.markdown(GLOSSARY)
     if status.get("labels_path"):
         st.caption(f"Labels written to {status['labels_path']}")
 
@@ -105,26 +126,47 @@ def main() -> None:
     st.caption("Generate synthetic telemetry into the pipeline. All data is synthetic.")
     left, right = st.columns(2)
     with left:
-        profile = st.selectbox("Profile", PROFILES, help="benign_train has no attacks. eval adds attack scenarios.")
-        picked = st.multiselect("Scenarios", SCENARIOS, default=["apt_chain"], disabled=profile == "benign_train")
-        speed = st.radio("Speed", ["burst", "realtime"], horizontal=True)
+        profile = st.selectbox("Profile", PROFILES,
+                               help="benign_train: normal activity only, used to TRAIN the ML model (run this first). "
+                                    "eval: normal activity plus the chosen attacks, used to DETECT and to TEST the model.")
+        picked = st.multiselect("Scenarios", SCENARIOS, default=["apt_chain"], disabled=profile == "benign_train",
+                                help="Which attacks to hide inside the normal traffic. apt_chain is the full attack story "
+                                     "(phishing, PowerShell, lateral movement, password theft, C2). Not used for benign_train.")
+        speed = st.radio("Speed", ["burst", "realtime"], horizontal=True,
+                         help="burst: send everything as fast as possible. realtime: replay at a realistic pace so "
+                              "the dashboard looks live (slower).")
     with right:
-        seed = st.number_input("Seed", min_value=0, max_value=2**31 - 1, value=DEFAULT_SEED[profile], step=1)
-        hours = st.number_input("Duration (hours)", min_value=1, max_value=168, value=24, step=1)
+        seed = st.number_input("Seed", min_value=0, max_value=2**31 - 1, value=DEFAULT_SEED[profile], step=1,
+                               help="The starting number of the random generator. The same seed always gives exactly "
+                                    "the same data. Training uses 1001, evaluation uses 2002, so they never overlap.")
+        hours = st.number_input("Duration (hours)", min_value=1, max_value=168, value=24, step=1,
+                                help="How many hours of company activity to simulate (24 = one day).")
         rate = st.number_input("Events per workstation-hour at peak (0 = default)", min_value=0, max_value=5000,
-                               value=0, step=10)
+                               value=0, step=10,
+                               help="How busy each PC is at the busiest hour. 0 keeps the built-in value. "
+                                    "Higher means more events and a longer run.")
     placeholder = st.empty()
-    start, refresh = st.columns(2)
+    start, stop, refresh = st.columns(3)
+    # Draw all three buttons first, so Stop is visible while a run is being watched.
+    start_clicked = start.button("Start run", type="primary", help="Start generating. Only one run can run at a time.")
+    stop_clicked = stop.button("Stop run", help="Cancel the running simulation. Events already sent stay in the system.")
+    refresh_clicked = refresh.button("Refresh status", help="Read the current progress.")
     try:
-        if start.button("Start run", type="primary"):
+        if start_clicked:
             if profile == "eval" and not picked:
                 st.warning("Pick at least one scenario, or choose benign_train.")
             else:
                 run = request("POST", "/v1/run", build_payload(profile, picked, int(seed), float(hours), speed,
                                                               float(rate) or None))
-                st.success(f"Run started: {run.get('run_id', '')[:8]}")
+                st.success(f"Run started: {run.get('run_id', '')[:8]}. Press Stop run to cancel it.")
                 watch(placeholder)
-        elif refresh.button("Refresh status"):
+        elif stop_clicked:
+            out = request("POST", "/v1/stop")
+            with placeholder.container():
+                if not out.get("stopping"):
+                    st.info("No run is running.")
+                show_status(request("GET", "/v1/status"))
+        elif refresh_clicked:
             with placeholder.container():
                 show_status(request("GET", "/v1/status"))
     except RuntimeError as exc:
